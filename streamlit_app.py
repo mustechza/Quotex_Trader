@@ -1,44 +1,38 @@
-
 import streamlit as st
-from quotexapi.stable_api import Quotex
-from dotenv import load_dotenv
-import os
-import time
+from quotexapi_patch import Quotex  # Make sure this is in the same folder
 
-# Load environment variables
-load_dotenv()
+st.set_page_config(page_title="Quotex Demo Trader", layout="centered")
 
-st.set_page_config(page_title="Quotex Trader", layout="centered")
-st.title("📈 Quotex Trader")
+st.title("📊 Quotex Demo Trading App")
 
-ssid = st.text_input("Enter your Quotex ssid", value=os.getenv("QX_SSID", ""), type="password")
-asset = st.selectbox("Choose Asset", ["EURUSD", "GBPUSD", "BTCUSD", "AUDCAD", "USDJPY"])
-amount = st.number_input("Amount ($)", min_value=1.0, value=1.0)
-duration = st.slider("Duration (seconds)", min_value=30, max_value=300, value=60, step=30)
-direction = st.radio("Direction", ["call", "put"])
-balance_type = st.radio("Account Type", ["PRACTICE", "REAL"])
+# Ask user for Laravel session cookie
+laravel_session = st.text_input("🔐 Enter your `laravel_session` cookie:", type="password")
 
-if st.button("📤 Place Trade"):
-    if not ssid:
-        st.error("Please provide a valid ssid.")
-    else:
-        qx = Quotex(set_ssid=ssid)
-        st.write("🔌 Connecting to Quotex...")
-        if qx.connect():
-            qx.change_balance(balance_type)
-            success = qx.buy(amount=amount, asset=asset, direction=direction, duration=duration)
-            if success:
-                st.success(f"Trade placed successfully on {asset.upper()} ({direction.upper()})")
-                with st.spinner("⏳ Waiting for result..."):
-                    time.sleep(duration + 5)
-                    result = qx.check_win()
-                    if result["win"] == "win":
-                        st.success(f"✅ Trade WON: Profit = ${result['profit']}")
-                    elif result["win"] == "loose":
-                        st.error(f"❌ Trade LOST: Loss = ${result['profit']}")
-                    else:
-                        st.warning(f"⚠️ Trade result: {result['win']}")
-            else:
-                st.error("Trade failed to execute.")
-        else:
-            st.error("❌ Failed to connect to Quotex.")
+# Optional asset and trade section
+st.markdown("---")
+st.subheader("📈 Trading Options")
+
+asset = st.selectbox("Choose Asset", ["EURUSD", "USDJPY", "GBPUSD", "BTCUSD"])
+amount = st.number_input("Enter amount to trade ($)", min_value=1.0, step=1.0, value=10.0)
+direction = st.radio("Trade Direction", ["call", "put"])
+duration = st.slider("Trade Duration (in seconds)", 30, 300, step=30)
+
+if laravel_session:
+    try:
+        qx = Quotex(laravel_session=laravel_session)
+        qx.connect()
+        profile = qx.get_profile()
+
+        st.success("✅ Successfully connected to Quotex Demo Account")
+        st.write("👤 **Profile Info**:")
+        st.json(profile)
+
+        if st.button("📤 Execute Trade"):
+            result = qx.buy(amount=amount, asset=asset, direction=direction, duration=duration)
+            st.success("✅ Trade Executed")
+            st.json(result)
+
+    except Exception as e:
+        st.error(f"❌ Failed to connect or trade: {e}")
+else:
+    st.warning("Please enter your `laravel_session` cookie to connect.")
